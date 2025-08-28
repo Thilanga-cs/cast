@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VR Project Explorer</title>
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles */
+        .page {
+            display: none;
+            min-height: 100vh;
+        }
+        .active {
+            display: block;
+        }
+        .vr-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .vr-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        .scene-container {
+            width: 100%;
+            height: 70vh;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+.glowing-border {
+    border: 2px solid transparent;
+    border-radius: 10px;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    padding: 10px; /* space for content */
+    position: relative;
+}
+
+.glowing-border::before {
+    content: "";
+    position: absolute;
+    top: -2px; left: -2px; right: -2px; bottom: -2px;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    z-index: -1;
+    border-radius: inherit;
+    filter: blur(5px);
+}
+
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-gray-500 min-h-screen">
+  <!-- Loader -->
+<div id="loader"></div>
+
+<!-- Your main content wrapper -->
+<div id="main-content" style="display:none;">
+  <!-- Existing content of your webpage goes here -->
+</div>
+
+<style>
+/* Full screen loader */
+#loader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #423119;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+/* Spinner */
+#loader::after {
+  content: "";
+  width: 50px;
+  height: 50px;
+  border: 5px solid #312905;
+  border-top: 5px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Spin animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+</style>
+
+<script>
+// Hide loader when page finishes loading
+window.addEventListener('load', function() {
+  document.getElementById('loader').style.display = 'none';
+  document.getElementById('main-content').style.display = 'block';
+});
+</script>
+
+<!-- Navigation -->
+<nav id="navbar" class="fixed w-full top-0 z-50 bg-[#36d5444] backdrop-blur-md shadow-lg transition-all duration-300">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex justify-between h-16">
+      
+      <!-- Logo -->
+      <div class="flex items-center">
+        <h1 class="text-3xl font-bold text-[#423119]">VR Explorer</h1>
+      </div>
+
+      <!-- Desktop Nav -->
+      <div class="hidden md:flex space-x-8 items-center">
+        <button onclick="showPage('Home')" class="nav-link">Home</button>
+        <button onclick="showPage('gallery')" class="nav-link">Gallery</button>
+        <button onclick="showPage('upload')" class="nav-link">Upload</button>
+        <button onclick="showPage('viewer')" class="nav-link hidden" id="viewerNav">VR Viewer</button>
+        <button onclick="showPage('about')" class="nav-link">About</button>
+      </div>
+
+      <!-- Mobile Menu Button -->
+      <div class="md:hidden flex items-center">
+        <button onclick="toggleMenu()" class="focus:outline-none">
+          <!-- Hamburger Icon -->
+          <svg class="w-8 h-8 text-[#312905]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Menu (hidden by default) -->
+  <div id="mobileMenu" class="md:hidden hidden bg-[#d4ccba]/80 backdrop-blur-md shadow-lg">
+    <div class="flex flex-col space-y-4 py-4 px-6">
+      <button onclick="showPage('Home'); toggleMenu()" class="nav-link">Home</button>
+      <button onclick="showPage('gallery'); toggleMenu()" class="nav-link">Gallery</button>
+      <button onclick="showPage('upload'); toggleMenu()" class="nav-link">Upload</button>
+      <button onclick="showPage('viewer'); toggleMenu()" class="nav-link hidden" id="viewerNavMobile">VR Viewer</button>
+      <button onclick="showPage('about'); toggleMenu()" class="nav-link">About</button>
+    </div>
+  </div>
+</nav>
+
+<script>
+  function toggleMenu() {
+    document.getElementById("mobileMenu").classList.toggle("hidden");
+  }
+</script>
+
+<style>
+  .nav-link {
+    position: relative;
+    color: #5d4916; /* gray-700 */
+    font-weight: 500;
+    transition: color 0.3s ease;
+  }
+
+  .nav-link:hover {
+    color: #000000; /* purple-600 */
+  }
+
+  .nav-link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -4px;
+    width: 0%;
+    height: 2px;
+    background-color: #42391c;
+    transition: width 0.3s ease-in-out;
+  }
+
+  .nav-link:hover::after {
+    width: 100%;
+  }
+</style>
+
+
+
+
+<!-- Home Page -->
+<div id="Home" class="page active">
+
+  <!-- Hero Section -->
+  <section class="relative h-[530px] overflow-hidden bg-[#d4ccba]">
+    <!-- Blob-shaped Image with smooth corners (Desktop only) -->
+    <div class="hidden md:block absolute top-1/3 right-20 transform 
+                w-80 h-96 overflow-hidden z-0">
+      
+      <img src="EEOlx7yYEbYJ8FwRDQfNE8lFE.jpg" alt="Hero Image" 
+           class="w-full h-full object-cover"
+           style="clip-path: path('M180 0 C270 0 300 90 300 180 C300 270 240 300 150 300 C60 300 0 240 0 150 C0 60 90 0 180 0 Z');">
+    </div>
+  
+  <!-- Overlay -->
+
+  <!-- Content -->
+  <div class="relative z-20 max-w-7xl mx-auto px-6 lg:px-12 h-full flex items-center">
+    <div class="max-w-2xl text-left">
+      <h1 class="text-5xl md:text-6xl font-extrabold mb-6 text-black">
+        Welcome to <span class="text-[#423119]">VR Explorer</span>
+      </h1>
+      <p class="text-xl md:text-2xl text-black-200 mb-10">
+        Upload, share, and explore immersive 3D & VR projects like never before 🌍
+      </p>
+
+      <!-- Call to Action Buttons -->
+<div class="flex gap-6 animate-fade-in-up">
+  <a href="#gallery" class="btn-section px-8 py-4 rounded-2xl bg-[#2d2300] text-white font-semibold text-lg shadow-lg hover:bg-yellow-300 transition transform hover:scale-105">
+    🚀 Explore Gallery
+  </a>
+  <a href="#upload" class="btn-section px-8 py-4 rounded-2xl bg-white text-gray-900 font-semibold text-lg shadow-lg hover:bg-gray-200 transition transform hover:scale-105">
+    📤 Upload Project
+  </a>
+</div>
+
+<script>
+  document.querySelectorAll('.btn-section').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault(); // stop normal jump
+      const targetId = this.getAttribute('href').substring(1); // "gallery" or "upload"
+      
+      // hide all pages
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      
+      // show the selected page
+      document.getElementById(targetId).classList.add('active');
+    });
+  });
+</script>
+
+    </div>
+  </div>
+</section>
+
+<!-- Moving Line Section -->
+<div class="relative bg-[#d4ccba] text-white overflow-hidden">
+  <!-- Gradient mask for blur -->
+
+
+  <!-- Marquee -->
+  <div class="relative z-10 flex animate-marquee">
+    <div class="flex whitespace-nowrap">
+      <span class="mx-8 text-black text-2xl">VR Projects</span>
+      <span class="mx-8 text-black text-2xl">Explore Worlds</span>
+      <span class="mx-8 text-black text-2xl">Gaming</span>
+      <span class="mx-8 text-black text-2xl">Immersive VR</span>
+      <span class="mx-8 text-black text-2xl">Fast & Secure</span>
+      <!-- Duplicate for seamless looping -->
+      <span class="mx-8 text-black text-2xl">VR Projects</span>
+      <span class="mx-8 text-black text-2xl">Explore Worlds</span>
+      <span class="mx-8 text-black text-2xl">Gaming</span>
+      <span class="mx-8 text-black text-2xl">Immersive VR</span>
+      <span class="mx-8 text-black text-2xl">Fast & Secure</span>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); } /* move by half because we duplicated content */
+}
+
+.animate-marquee {
+  display: flex;
+  animation: marquee 20s linear infinite;
+}
+</style>
+
+
+
+
+    <!-- Decorative Floating Circles -->
+    <div class="absolute top-10 left-10 w-20 h-20 bg-yellow-300 rounded-full opacity-30 animate-bounce"></div>
+    <div class="absolute bottom-10 right-20 w-32 h-32 bg-purple-400 rounded-full opacity-20 animate-pulse"></div>
+  </section>
+
+  <!-- Features Section -->
+   
+<!-- Features Section with Overlay -->
+<section class="py-20 bg-[#d4ccba] relative">
+  
+  <!-- Overlay -->
+
+  <!-- Section Content -->
+  <div class="relative z-10 max-w-6xl mx-auto px-6 text-center mb-16">
+    <h2 class="text-4xl font-bold text-[#423119] mb-4">Why Choose VR Explorer?</h2>
+    <p class="text-lg text-black-400">A hub for creators, learners, and adventurers to experience VR together.</p>
+  </div>
+
+  <div class="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-10 max-w-6xl mx-auto px-6">
+    <!-- Card 1 -->
+    <div class="bg-[#3b2e1c] shadow-xl rounded-2xl p-8 transform transition hover:-translate-y-2 hover:shadow-2xl animate-fade-in-up">
+      <h3 class="text-2xl font-bold mb-4 bg-white text-transparent bg-clip-text">Explore</h3>
+      <p class=" font-bold mb-4 bg-gradient-to-r from-gray-400 to-white text-transparent bg-clip-text">>Discover VR projects from ancient landmarks to futuristic worlds, directly in your browser.</p>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="bg-[#3b2e1c] shadow-xl rounded-2xl p-8 transform transition hover:-translate-y-2 hover:shadow-2xl animate-fade-in-up delay-200">
+      <h3 class="text-2xl font-bold mb-4 bg-white text-transparent bg-clip-text">Upload</h3>
+      <p class="font-bold mb-4 bg-gradient-to-r from-gray-400 to-white text-transparent bg-clip-text">Easily share your 3D or VR creations with the community and showcase your skills.</p>
+    </div>
+
+    <!-- Card 3 -->
+    <div class="bg-[#3b2e1c] shadow-xl rounded-2xl p-8 transform transition hover:-translate-y-2 hover:shadow-2xl animate-fade-in-up delay-400">
+      <h3 class="text-2xl font-bold mb-4 bg-white text-transparent bg-clip-text">Experience</h3>
+      <p class=" font-bold mb-4 bg-gradient-to-r from-gray-400 to-white text-transparent bg-clip-text">Enjoy immersive VR experiences on desktop, mobile, or VR headsets with WebXR support.</p>
+    </div>
+  </div>
+
+</section>
+
+    
+  </section>
+
+  <!-- Footer Section -->
+<!-- Footer Section -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <title>Footer Example</title>
+</head>
+<body>
+
+<footer class="bg-[#62584a] text-white py-6">
+  <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
+
+    <!-- Social Icons -->
+    <div class="flex gap-4 text-2xl">
+      <a href="#" class="hover:text-white"><i class="fab fa-facebook-f"></i></a>
+      <a href="#" class="hover:text-white"><i class="fab fa-instagram"></i></a>
+      <a href="#" class="hover:text-white"><i class="fab fa-twitter"></i></a>
+      <a href="#" class="hover:text-white"><i class="fab fa-linkedin-in"></i></a>
+      <a href="#" class="hover:text-white"><i class="fab fa-tiktok"></i></a>
+      <a href="#" class="hover:text-white"><i class="fab fa-youtube"></i></a>
+      <a href="#" class="hover:text-white"><i class="fab fa-github"></i></a>
+      <a href="#" class="hover:text-white"><i class="fab fa-discord"></i></a>
+      <a href="#" class="hover:text-white"><i class="fas fa-rss"></i></a>
+    </div>
+
+    <!-- Links & Copyright -->
+    <div class="flex flex-col md:flex-row gap-4 text-sm text-gray-400">
+      <a href="#" class="hover:text-white">Cookie Settings</a>
+      <a href="#" class="hover:text-white">Privacy Policy</a>
+      <a href="#" class="hover:text-white">User  Agreement</a>
+      <span>© 2025 VR Explorer</span>
+    </div>
+
+  </div>
+</footer>
+
+</body>
+</html>
+
+
+<!-- FontAwesome CDN for icons -->
+<script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+
+</div>
+
+<!-- Animations -->
+<style>
+  @keyframes fadeInUp {
+    from {opacity:0; transform:translateY(20px);}
+    to {opacity:1; transform:translateY(0);}
+  }
+  @keyframes fadeInDown {
+    from {opacity:0; transform:translateY(-20px);}
+    to {opacity:1; transform:translateY(0);}
+  }
+  .animate-fade-in-up { animation: fadeInUp 1s ease forwards; }
+  .animate-fade-in-down { animation: fadeInDown 1s ease forwards; }
+  .delay-200 { animation-delay: 0.2s; }
+  .delay-400 { animation-delay: 0.4s; }
+</style>
+
+    <!-- Gallery Page -->
+    <div id="gallery" class="page  pt-20" style="background-color: #d4ccba;">
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl font-bold text-black mb-4">VR Project Gallery</h2>
+                <p class="text-xl text-black">Explore interactive 3D and VR projects created by our community</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="projectsGrid">
+                <!-- Projects will be loaded here -->
+                <div class="text-center text-black-500 col-span-3 py-12">
+                    <p>No projects uploaded yet. Be the first to share your VR creation!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Upload Page -->
+<div id="upload" class="page  pt-20" style="background-color: #d4ccba;" pt-20">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      
+      <!-- Left side: Upload Project box (your current one) -->
+      <div class="bg-gradient-to-br from-[#302409]  text-black rounded-xl shadow-lg p-8">
+
+        <div class="text-center mb-8">
+          <h2 class="text-3xl font-bold text-white mb-4">Share your 3D model with the community</h2>
+          <p class="text-white">Share your 3D model with the community</p>
+        </div>
+
+        <form id="uploadForm" class="space-y-6">
+          <div>
+            <label for="title" class="block text-sm font-medium text-white mb-2">Project Title</label>
+<input type="text" id="title" name="title" required 
+       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors bg-[#d4ccba] text-black"
+       placeholder="Enter your project title">
+          </div>
+
+          <div>
+            <label for="description" class="block text-sm font-medium text-white mb-2">Description</label>
+            <textarea id="description" name="description" rows="4" required
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors bg-[#d4ccba] text-black"
+                      placeholder="Describe your VR project..."></textarea>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-white mb-2">3D Model File</label>
+            <div class="file-input-wrapper w-full">
+              <div class="glowing-border rounded-lg p-8 text-center cursor-pointer bg-gradient-to-b from-[#302409] to-[#302409]">
+
+                <div class="space-y-3">
+                  <svg class="w-12 h-12 text-white mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                  </svg>
+                  <p class="text-white">Click to upload your .glb or .gltf file</p>
+                  <p class="text-sm text-white">Maximum file size: 50MB</p>
+                </div>
+                <input type="file" id="file" name="file" accept=".jpg,.glb,.gltf" required class="w-full h-full opacity-0 absolute inset-0 cursor-pointer">
+              </div>
+            </div>
+            <div id="fileName" class="text-sm text-gray-500 mt-2"></div>
+          </div>
+
+          <button type="submit" class="w-full bg-[#302409]  text-white py-3 px-6 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all transform hover:scale-105">
+            Upload Project
+          </button>
+        </form>
+      </div>
+
+      <!-- Right side: New Info/Preview box -->
+       
+      <div class="bg-gradient-to-br from-[#302409]  text-white rounded-xl shadow-xl p-8 text-white flex flex-col justify-center">
+        <h2 class="text-2xl font-bold mb-4">Why Upload?</h2>
+        <p class="mb-6 text-lg">
+          Share your VR creations with the community and get instant feedback. Showcase your models, collaborate with others, and grow your skills.
+        </p>
+        
+        
+        <div class="bg-white/20 rounded-lg p-6 backdrop-blur-sm">
+          <h3 class="text-lg font-semibold mb-2">Tips for Uploading</h3>
+          <ul class="list-disc list-inside text-sm space-y-1">
+            <li>Use optimized <code>.glb</code> or <code>.gltf</code> files</li>
+            <li>Keep file size under <b>50MB</b></li>
+            <li>Write a clear, engaging description</li>
+            <li>Preview before submitting</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+    <!-- VR Viewer Page -->
+    <div id="viewer" class="page pt-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-900" id="viewerTitle">VR Experience</h2>
+                <button onclick="exitVRViewer()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
+                    Exit Viewer
+                </button>
+            </div>
+            
+            <div class="scene-container">
+                <a-scene embedded id="vrScene" vr-mode-ui="enabled: true">
+                    <a-assets>
+                        <a-asset-item id="model"></a-asset-item>
+                    </a-assets>
+                    
+                    <a-entity gltf-model="#model" position="0 1 -5" scale="1 1 1" id="loadedModel"></a-entity>
+                    
+                    <a-entity position="0 0 0">
+                        <a-entity camera look-controls wasd-controls position="0 1.6 0"></a-entity>
+                    </a-entity>
+                    
+                    <a-sky color="#ECECEC"></a-sky>
+                    <a-entity light="type: ambient; color: #BBB"></a-entity>
+                    <a-entity light="type: directional; color: #FFF; intensity: 0.6" position="-0.5 1 1"></a-entity>
+                </a-scene>
+            </div>
+
+            <div class="mt-6 bg-white rounded-lg p-6 shadow-md">
+                <h3 class="text-lg font-semibold text-gray-900 mb-3">Controls</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                    <div>
+                        <p><strong>Desktop:</strong> Click and drag to look around, WASD to move</p>
+                        <p><strong>Mobile:</strong> Touch and drag to look around, use on-screen controls</p>
+                    </div>
+                    <div>
+                        <p><strong>VR Headsets:</strong> Put on your headset and use controllers to interact</p>
+                        <p><strong>Zoom:</strong> Mouse wheel or pinch-to-zoom on mobile</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<!-- About Section -->
+<div id="about" class="page pt-20" style="background-color: #d4ccba;">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    <!-- Heading -->
+    <div class="text-center mb-12">
+      <h2 class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-blue-500 to-purple-600 animate-pulse">
+        About VR Explorer
+      </h2>
+      <p class="text-xl text-gray-400 mt-4">
+        Step into new realities, learn through immersive experiences, and unlock the power of imagination.
+      </p>
+    </div>
+
+    <!-- Content -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+      <!-- Left Side (Text) -->
+      <div class="space-y-6 text-gray-300">
+        <p class="text-lg leading-relaxed">
+          <span class="text-green-400 font-semibold">VR Explorer</span> was built to bring the magic of virtual reality to everyone. 
+          Whether you want to explore distant galaxies, dive into futuristic cities, or learn in fully interactive classrooms, 
+          we create experiences that push the boundaries of imagination.
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
+          <div class="p-4 bg-gradient-to-br from-green-500/10 to-green-900/20 rounded-2xl shadow-lg transform hover:scale-105 transition duration-300">
+            <h3 class="text-2xl font-bold text-green-400">🌌</h3>
+            <p class="mt-2 text-sm">Explore Worlds</p>
+          </div>
+          <div class="p-4 bg-gradient-to-br from-blue-500/10 to-blue-900/20 rounded-2xl shadow-lg transform hover:scale-105 transition duration-300">
+            <h3 class="text-2xl font-bold text-blue-400">🕹️</h3>
+            <p class="mt-2 text-sm">Learn by Doing</p>
+          </div>
+          <div class="p-4 bg-gradient-to-br from-purple-500/10 to-purple-900/20 rounded-2xl shadow-lg transform hover:scale-105 transition duration-300">
+            <h3 class="text-2xl font-bold text-purple-400">🚀</h3>
+            <p class="mt-2 text-sm">Create Futures</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Side (Image/Animation) -->
+      <div class="flex justify-center relative">
+        <!-- Neon Circle Animation -->
+        <div class="absolute w-64 h-64 rounded-full bg-gradient-to-r from-green-400 to-blue-600 blur-3xl opacity-30 animate-ping"></div>
+        <img 
+          src="https://cdn-icons-png.flaticon.com/512/3522/3522745.png" 
+          alt="VR headset" 
+          class="relative w-72 transform hover:scale-110 transition duration-500"
+        >
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    <script>
+        // Initialize localStorage for projects if not exists
+        if (!localStorage.getItem('vrProjects')) {
+            localStorage.setItem('vrProjects', JSON.stringify([]));
+        }
+
+        // Show/hide pages
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            document.getElementById(pageId).classList.add('active');
+            
+            if (pageId === 'gallery') {
+                loadGallery();
+            }
+        }
+
+        // Load projects for gallery
+        function loadGallery() {
+            const projects = JSON.parse(localStorage.getItem('vrProjects') || '[]');
+            const grid = document.getElementById('projectsGrid');
+            
+            if (projects.length === 0) {
+                grid.innerHTML = '<div class="text-center text-gray-500 col-span-3 py-12"><p>No projects uploaded yet. Be the first to share your VR creation!</p></div>';
+                return;
+            }
+
+            grid.innerHTML = projects.map(project => `
+                <div class="vr-card bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl">
+                    <div class="h-48 bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center">
+                        <img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/0f974173-1df4-422f-87ae-80911a812c80.png" alt="${project.title} - 3D model preview showing abstract geometric shapes with purple and blue gradients" class="w-full h-full object-cover" />
+                    </div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2">${project.title}</h3>
+                        <p class="text-gray-600 mb-4 line-clamp-3">${project.description}</p>
+                        <button onclick="openVRViewer('${project.file}', '${project.title}')" 
+                                class="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors">
+                            Explore in VR
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Handle file input display
+        document.getElementById('file').addEventListener('change', function(e) {
+            const fileName = e.target.files[0]?.name || 'No file chosen';
+            document.getElementById('fileName').textContent = fileName;
+        });
+
+        // Handle form submission
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const title = document.getElementById('title').value;
+            const description = document.getElementById('description').value;
+            const fileInput = document.getElementById('file');
+            
+            if (!fileInput.files[0]) {
+                alert('Please select a 3D model file');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const fileData = e.target.result;
+                const projects = JSON.parse(localStorage.getItem('vrProjects') || '[]');
+                
+                const newProject = {
+                    id: Date.now(),
+                    title: title,
+                    description: description,
+                    file: fileData, // Storing as base64 for demo
+                    fileName: file.name,
+                    uploadedAt: new Date().toISOString()
+                };
+                
+                projects.push(newProject);
+                localStorage.setItem('vrProjects', JSON.stringify(projects));
+                
+                alert('Project uploaded successfully!');
+                document.getElementById('uploadForm').reset();
+                document.getElementById('fileName').textContent = '';
+                showPage('gallery');
+            };
+            
+            reader.readAsDataURL(file);
+        });
+
+        // Open VR viewer with selected project
+        function openVRViewer(fileData, title) {
+            const modelAsset = document.querySelector('#model');
+            modelAsset.setAttribute('src', fileData);
+            
+            document.getElementById('viewerTitle').textContent = title;
+            showPage('viewer');
+            document.getElementById('viewerNav').style.display = 'block';
+            
+            // Reset camera position
+            setTimeout(() => {
+                const scene = document.querySelector('a-scene');
+                if (scene.hasLoaded) {
+                    const camera = document.querySelector('[camera]');
+                    if (camera) {
+                        camera.setAttribute('position', '0 1.6 0');
+                    }
+                }
+            }, 1000);
+        }
+
+        // Exit VR viewer
+        function exitVRViewer() {
+            showPage('gallery');
+            document.getElementById('viewerNav').style.display = 'none';
+        }
+
+        // Initialize gallery on load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadGallery();
+            
+            // Handle URL parameters for direct viewer access
+            const urlParams = new URLSearchParams(window.location.search);
+            const viewProject = urlParams.get('view');
+            if (viewProject) {
+                const projects = JSON.parse(localStorage.getItem('vrProjects') || '[]');
+                const project = projects.find(p => p.id === parseInt(viewProject));
+                if (project) {
+                    openVRViewer(project.file, project.title);
+                }
+            }
+        });
+    </script>
+
+
+<style>
+
+
+/* Style for fixed feedback icon */
+.feedback-icon {
+    position: fixed;
+    right: 0;           /* Align to right */
+    top: 50%;           /* Center vertically */
+    transform: translateY(-50%);
+    background-color: #614818; /* Neon green */
+    color: #22ff00;
+    padding: 10px 4px;
+    font-weight: bold;
+    text-decoration: none;
+    border-radius: 8px 0 0 8px; /* Rounded left corners */
+    writing-mode: vertical-rl;  /* Make text vertical */
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    transition: background-color 0.3s;
+    z-index: 1000;      /* Stay on top */
+}
+
+.feedback-icon:hover {
+    background-color: #ff0000; /* Darker on hover */
+}
+</style>
+
+<!-- Add this to the body of your first webpage -->
+<a href="feedback.html" class="feedback-icon" target="_blank">
+    Feedback
+</a>
+
+
+</body>
+</html>  
+
